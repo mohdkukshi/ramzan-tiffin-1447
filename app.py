@@ -16,7 +16,6 @@ def init_db():
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
 
-    # Users table
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,7 +25,6 @@ def init_db():
         )
     """)
 
-    # Members table
     c.execute("""
         CREATE TABLE IF NOT EXISTS members (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,7 +34,6 @@ def init_db():
         )
     """)
 
-    # Attendance table
     c.execute("""
         CREATE TABLE IF NOT EXISTS attendance (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,7 +46,6 @@ def init_db():
         )
     """)
 
-    # Settings table
     c.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,12 +53,12 @@ def init_db():
         )
     """)
 
-    # Insert default year if not exists
+    # Default Year
     c.execute("SELECT * FROM settings")
     if not c.fetchone():
         c.execute("INSERT INTO settings (year) VALUES (?)", ("1447",))
 
-    # Insert default users
+    # Default Users
     c.execute("SELECT * FROM users WHERE username='superadmin'")
     if not c.fetchone():
         c.execute("INSERT INTO users (username, password, role) VALUES (?,?,?)",
@@ -75,6 +71,13 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+
+# Ensure DB exists before first request (for Render)
+@app.before_request
+def ensure_database():
+    if not os.path.exists(DATABASE):
+        init_db()
 
 
 def get_year():
@@ -144,9 +147,8 @@ def dashboard():
                            year=get_year())
 
 
-# ---------------- RUN ---------------- #
+# ---------------- RUN (LOCAL ONLY) ---------------- #
 
 if __name__ == "__main__":
     init_db()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
