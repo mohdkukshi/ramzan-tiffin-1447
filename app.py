@@ -1,76 +1,79 @@
 from flask import Flask, render_template, redirect, url_for, request, session, flash
-import sqlite3
 import os
+import psycopg2
 from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
-DATABASE = "database.db"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
-# ---------------- DATABASE ---------------- #
+# ---------------- DATABASE CONNECTION ---------------- #
+
+def get_connection():
+    return psycopg2.connect(DATABASE_URL)
+
 
 def init_db():
-    conn = sqlite3.connect(DATABASE)
+    conn = get_connection()
     c = conn.cursor()
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT UNIQUE,
             password TEXT,
             can_manage_members INTEGER,
             can_mark_attendance INTEGER,
             can_change_settings INTEGER
-        )
+        );
     """)
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS members (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             sabil_number TEXT UNIQUE,
             name TEXT,
-            created_at TEXT
-        )
+            created_at TIMESTAMP
+        );
     """)
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             year TEXT
-        )
+        );
     """)
 
-    # Default year
-    c.execute("SELECT * FROM settings")
+    c.execute("SELECT * FROM settings;")
     if not c.fetchone():
-        c.execute("INSERT INTO settings (year) VALUES (?)", ("1447",))
+        c.execute("INSERT INTO settings (year) VALUES (%s);", ("1447",))
 
-    # Default superadmin
-    c.execute("SELECT * FROM users WHERE username='superadmin'")
+    c.execute("SELECT * FROM users WHERE username=%s;", ("superadmin",))
     if not c.fetchone():
         c.execute("""
             INSERT INTO users
             (username, password, can_manage_members, can_mark_attendance, can_change_settings)
-            VALUES (?,?,?,?,?)
+            VALUES (%s,%s,%s,%s,%s);
         """, ("superadmin", "1234", 1, 1, 1))
 
     conn.commit()
+    c.close()
     conn.close()
 
 
-@app.before_request
-def ensure_database():
-    if not os.path.exists(DATABASE):
-        init_db()
+@app.before_first_request
+def setup():
+    init_db()
 
 
 def get_year():
-    conn = sqlite3.connect(DATABASE)
+    conn = get_connection()
     c = conn.cursor()
-    c.execute("SELECT year FROM settings LIMIT 1")
+    c.execute("SELECT year FROM settings LIMIT 1;")
     year = c.fetchone()[0]
+    c.close()
     conn.close()
     return year
 
@@ -79,10 +82,11 @@ def get_current_user():
     if "user_id" not in session:
         return None
 
-    conn = sqlite3.connect(DATABASE)
+    conn = get_connection()
     c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE id=?", (session["user_id"],))
+    c.execute("SELECT * FROM users WHERE id=%s;", (session["user_id"],))
     user = c.fetchone()
+    c.close()
     conn.close()
     return user
 
@@ -97,11 +101,12 @@ def login():
         username = request.form["username"]
         password = request.form["password"]
 
-        conn = sqlite3.connect(DATABASE)
+        conn = get_connection()
         c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username=? AND password=?",
+        c.execute("SELECT * FROM users WHERE username=%s AND password=%s;",
                   (username, password))
         user = c.fetchone()
+        c.close()
         conn.close()
 
         if user:
@@ -123,97 +128,89 @@ def logout():
 
 @app.route("/dashboard")
 def dashboard():
-    user = get_current_user()
-    if not user:
+    if not get_current_user():
         return redirect(url_for("login"))
 
-    return render_template("dashboard.html",
-                           year=get_year())
+    return render_template("dashboard.html", year=get_year())
 
 
-# ---------------- USERS MANAGEMENT ---------------- #
+# ---------------- MEMBERS ---------------- #
 
-@app.route("/users", methods=["GET", "POST"])
-def users():
+@app.route("/members", methods=["GET", "POST"])
+def members():
     user = get_current_user()
-    if not user or user[5] != 1:
+    if not user or user[3] != 1:
         return "Access Denied"
 
-    conn = sqlite3.connect(DATABASE)
+    conn = get_connection()
     c = conn.cursor()
 
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        manage = 1 if request.form.get("manage") else 0
-        attendance = 1 if request.form.get("attendance") else 0
-        settings = 1 if request.form.get("settings") else 0
-
+        sabil = request.form["sabil"]
+        name = request.form["name"]
         c.execute("""
-            INSERT INTO users
-            (username, password, can_manage_members, can_mark_attendance, can_change_settings)
-            VALUES (?,?,?,?,?)
-        """, (username, password, manage, attendance, settings))
+            INSERT INTO members (sabil_number, name, created_at)
+            VALUES (%s,%s,%s);
+        """, (sabil, name, datetime.now()))
         conn.commit()
-        flash("User Created Successfully")
 
-    c.execute("SELECT * FROM users")
-    all_users = c.fetchall()
+    c.execute("SELECT * FROM members ORDER BY id DESC;")
+    members = c.fetchall()
+    c.close()
     conn.close()
 
-    return render_template("users.html",
-                           users=all_users,
+    return render_template("members.html",
+                           members=members,
                            year=get_year())
 
 
-@app.route("/reset_password/<int:user_id>", methods=["POST"])
-def reset_password(user_id):
+@app.route("/edit_member/<int:id>", methods=["GET", "POST"])
+def edit_member(id):
     user = get_current_user()
-    if not user or user[5] != 1:
+    if not user or user[3] != 1:
         return "Access Denied"
 
-    new_password = request.form["new_password"]
-
-    conn = sqlite3.connect(DATABASE)
+    conn = get_connection()
     c = conn.cursor()
-    c.execute("UPDATE users SET password=? WHERE id=?", (new_password, user_id))
-    conn.commit()
-    conn.close()
-
-    flash("Password Reset Successfully")
-    return redirect(url_for("users"))
-
-
-# ---------------- CHANGE OWN PASSWORD ---------------- #
-
-@app.route("/change_password", methods=["GET", "POST"])
-def change_password():
-    user = get_current_user()
-    if not user:
-        return redirect(url_for("login"))
 
     if request.method == "POST":
-        current = request.form["current"]
-        new = request.form["new"]
-
-        if current != user[2]:
-            flash("Current password incorrect")
-            return redirect(url_for("change_password"))
-
-        conn = sqlite3.connect(DATABASE)
-        c = conn.cursor()
-        c.execute("UPDATE users SET password=? WHERE id=?", (new, user[0]))
+        sabil = request.form["sabil"]
+        name = request.form["name"]
+        c.execute("""
+            UPDATE members SET sabil_number=%s, name=%s WHERE id=%s;
+        """, (sabil, name, id))
         conn.commit()
+        c.close()
         conn.close()
+        return redirect(url_for("members"))
 
-        flash("Password Updated Successfully")
-        return redirect(url_for("dashboard"))
+    c.execute("SELECT * FROM members WHERE id=%s;", (id,))
+    member = c.fetchone()
+    c.close()
+    conn.close()
 
-    return render_template("change_password.html",
+    return render_template("edit_member.html",
+                           member=member,
                            year=get_year())
 
 
-# ---------------- RUN LOCAL ---------------- #
+@app.route("/delete_member/<int:id>")
+def delete_member(id):
+    user = get_current_user()
+    if not user or user[3] != 1:
+        return "Access Denied"
+
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM members WHERE id=%s;", (id,))
+    conn.commit()
+    c.close()
+    conn.close()
+
+    return redirect(url_for("members"))
+
+
+# ---------------- RUN ---------------- #
 
 if __name__ == "__main__":
     init_db()
