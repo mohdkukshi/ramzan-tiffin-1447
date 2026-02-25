@@ -1,8 +1,7 @@
-from flask import Flask, render_template, redirect, url_for, request, session, send_file
+from flask import Flask, render_template, redirect, url_for, request, session
 import sqlite3
 import os
 from datetime import datetime
-import pandas as pd
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
@@ -16,7 +15,6 @@ def init_db():
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
 
-    # Users with permissions
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,16 +42,14 @@ def init_db():
         )
     """)
 
-    # Default year
     c.execute("SELECT * FROM settings")
     if not c.fetchone():
         c.execute("INSERT INTO settings (year) VALUES (?)", ("1447",))
 
-    # Default Superadmin (full permissions)
     c.execute("SELECT * FROM users WHERE username='superadmin'")
     if not c.fetchone():
         c.execute("""
-            INSERT INTO users 
+            INSERT INTO users
             (username, password, can_manage_members, can_mark_attendance, can_change_settings)
             VALUES (?,?,?,?,?)
         """, ("superadmin", "1234", 1, 1, 1))
@@ -153,7 +149,7 @@ def users():
         settings = 1 if request.form.get("settings") else 0
 
         c.execute("""
-            INSERT INTO users 
+            INSERT INTO users
             (username, password, can_manage_members, can_mark_attendance, can_change_settings)
             VALUES (?,?,?,?,?)
         """, (username, password, manage, attendance, settings))
@@ -165,6 +161,50 @@ def users():
 
     return render_template("users.html",
                            users=all_users,
+                           year=get_year())
+
+
+@app.route("/reset_password/<int:user_id>", methods=["POST"])
+def reset_password(user_id):
+    user = get_current_user()
+    if not user or user[5] != 1:
+        return "Access Denied"
+
+    new_password = request.form["new_password"]
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("UPDATE users SET password=? WHERE id=?", (new_password, user_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("users"))
+
+
+# ---------------- CHANGE OWN PASSWORD ---------------- #
+
+@app.route("/change_password", methods=["GET", "POST"])
+def change_password():
+    user = get_current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        current = request.form["current"]
+        new = request.form["new"]
+
+        if current != user[2]:
+            return "Current password incorrect"
+
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute("UPDATE users SET password=? WHERE id=?", (new, user[0]))
+        conn.commit()
+        conn.close()
+
+        return "Password Updated Successfully"
+
+    return render_template("change_password.html",
                            year=get_year())
 
 
