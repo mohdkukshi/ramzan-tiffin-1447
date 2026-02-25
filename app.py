@@ -73,7 +73,6 @@ def init_db():
     conn.close()
 
 
-# Ensure DB exists before first request (for Render)
 @app.before_request
 def ensure_database():
     if not os.path.exists(DATABASE):
@@ -89,7 +88,7 @@ def get_year():
     return year
 
 
-# ---------------- LOGIN ---------------- #
+# ---------------- AUTH ---------------- #
 
 @app.route("/", methods=["GET", "POST"])
 def login():
@@ -147,7 +146,62 @@ def dashboard():
                            year=get_year())
 
 
-# ---------------- RUN (LOCAL ONLY) ---------------- #
+# ---------------- MEMBERS ---------------- #
+
+@app.route("/members", methods=["GET", "POST"])
+def members():
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"] != "superadmin":
+        return "Access Denied"
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+
+    if request.method == "POST":
+        sabil = request.form["sabil"]
+        name = request.form["name"]
+        c.execute("INSERT INTO members (sabil_number, name, created_at) VALUES (?,?,?)",
+                  (sabil, name, datetime.now()))
+        conn.commit()
+
+    c.execute("SELECT * FROM members ORDER BY id DESC")
+    all_members = c.fetchall()
+    conn.close()
+
+    return render_template("members.html",
+                           members=all_members,
+                           year=get_year())
+
+
+@app.route("/delete_member/<int:id>")
+def delete_member(id):
+    if session.get("role") != "superadmin":
+        return "Access Denied"
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("DELETE FROM members WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("members"))
+
+
+@app.route("/export_members")
+def export_members():
+    conn = sqlite3.connect(DATABASE)
+    df = pd.read_sql_query("SELECT sabil_number, name, created_at FROM members", conn)
+    conn.close()
+
+    filename = "members_export.csv"
+    df.to_csv(filename, index=False)
+
+    return send_file(filename, as_attachment=True)
+
+
+# ---------------- RUN LOCAL ---------------- #
 
 if __name__ == "__main__":
     init_db()

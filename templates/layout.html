@@ -4,17 +4,27 @@
     <title>Ramzan Tiffin Pirsa {{ year }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="bg-light">
 
 {% if session.get('user') %}
-<nav class="navbar navbar-dark bg-dark px-3">
-    <span class="navbar-brand">Ramzan Tiffin Pirsa {{ year }}</span>
+<nav class="navbar navbar-dark bg-dark px-4">
+    <span class="navbar-brand fw-bold">
+        Ramzan Tiffin Pirsa {{ year }}
+    </span>
 
     <div>
         <a href="/dashboard" class="btn btn-sm btn-light">Dashboard</a>
+
+        {% if session.get('role') == 'superadmin' %}
         <a href="/members" class="btn btn-sm btn-light">Members</a>
+        {% endif %}
+
         <a href="/attendance" class="btn btn-sm btn-light">Attendance</a>
+
+        {% if session.get('role') == 'superadmin' %}
         <a href="/settings" class="btn btn-sm btn-warning">Settings</a>
+        {% endif %}
+
         <a href="/logout" class="btn btn-sm btn-danger">Logout</a>
     </div>
 </nav>
