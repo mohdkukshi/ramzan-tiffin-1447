@@ -1,69 +1,35 @@
-{% extends "layout.html" %}
+{% extends "base.html" %}
 {% block content %}
 
-<h3>User Management</h3>
+<h2>User Management</h2>
 
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <div class="alert alert-success">
-      {{ messages[0] }}
-    </div>
-  {% endif %}
-{% endwith %}
+<div class="card">
 
-<div class="card p-4 shadow mb-4">
-    <h5>Create New User</h5>
-    <form method="POST">
-        <div class="row">
-            <div class="col-md-3">
-                <input name="username" placeholder="Username" class="form-control" required>
-            </div>
-            <div class="col-md-3">
-                <input name="password" placeholder="Password" class="form-control" required>
-            </div>
-            <div class="col-md-2">
-                <label><input type="checkbox" name="manage"> Manage Members</label>
-            </div>
-            <div class="col-md-2">
-                <label><input type="checkbox" name="attendance"> Attendance</label>
-            </div>
-            <div class="col-md-2">
-                <label><input type="checkbox" name="settings"> Settings</label>
-            </div>
-        </div>
-        <button class="btn btn-dark mt-3">Create User</button>
+    <h3>Create New User</h3>
+
+    <form method="POST" style="display:flex; gap:15px; margin-bottom:20px;">
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <button class="btn-grey">Create User</button>
     </form>
-</div>
 
-<div class="card shadow">
-    <div class="card-body">
-        <h5>Existing Users</h5>
-        <table class="table table-striped">
-            <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Reset Password</th>
-            </tr>
-            {% for u in users %}
-            <tr>
-                <td>{{ u[0] }}</td>
-                <td>{{ u[1] }}</td>
-                <td>
-                    {% if u[1] != 'superadmin' %}
-                    <form method="POST" action="/reset_password/{{ u[0] }}">
-                        <div class="input-group">
-                            <input type="text" name="new_password" placeholder="New Password" class="form-control" required>
-                            <button class="btn btn-danger">Reset</button>
-                        </div>
-                    </form>
-                    {% else %}
-                    <span class="text-muted">Protected</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
-    </div>
+    <h3>Existing Users</h3>
+
+    <table width="100%" cellpadding="10" style="border-collapse:collapse;">
+        <tr style="background:#ecf0f1;">
+            <th>ID</th>
+            <th>Username</th>
+        </tr>
+
+        {% for u in users %}
+        <tr style="border-top:1px solid #ddd;">
+            <td>{{ u[0] }}</td>
+            <td>{{ u[1] }}</td>
+        </tr>
+        {% endfor %}
+
+    </table>
+
 </div>
 
 {% endblock %}

@@ -1,19 +1,16 @@
 {% extends "base.html" %}
-
 {% block content %}
 
-<div class="card">
-    <h2>Edit Member</h2>
+<h2>Edit Member</h2>
 
-    <form method="POST">
-        <label>Sabil Number</label>
+<div class="card" style="max-width:400px;">
+
+    <form method="POST" style="display:flex; flex-direction:column; gap:15px;">
         <input type="text" name="sabil" value="{{ member[1] }}" required>
-
-        <label>Name</label>
         <input type="text" name="name" value="{{ member[2] }}" required>
-
-        <button type="submit">Update Member</button>
+        <button class="btn-grey">Update</button>
     </form>
+
 </div>
 
 {% endblock %}
