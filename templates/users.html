@@ -3,6 +3,14 @@
 
 <h3>User Management</h3>
 
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <div class="alert alert-success">
+      {{ messages[0] }}
+    </div>
+  {% endif %}
+{% endwith %}
+
 <div class="card p-4 shadow mb-4">
     <h5>Create New User</h5>
     <form method="POST">
@@ -31,38 +39,29 @@
     <div class="card-body">
         <h5>Existing Users</h5>
         <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Username</th>
-                    <th>Manage</th>
-                    <th>Attendance</th>
-                    <th>Settings</th>
-                    <th>Reset Password</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for u in users %}
-                <tr>
-                    <td>{{ u[0] }}</td>
-                    <td>{{ u[1] }}</td>
-                    <td>{{ u[3] }}</td>
-                    <td>{{ u[4] }}</td>
-                    <td>{{ u[5] }}</td>
-                    <td>
-                        {% if u[1] != 'superadmin' %}
-                        <form method="POST" action="/reset_password/{{ u[0] }}" class="d-flex">
-                            <input type="text" name="new_password" placeholder="New Password"
-                                   class="form-control form-control-sm me-2" required>
-                            <button class="btn btn-sm btn-danger">Reset</button>
-                        </form>
-                        {% else %}
-                        <span class="text-muted">Protected</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Reset Password</th>
+            </tr>
+            {% for u in users %}
+            <tr>
+                <td>{{ u[0] }}</td>
+                <td>{{ u[1] }}</td>
+                <td>
+                    {% if u[1] != 'superadmin' %}
+                    <form method="POST" action="/reset_password/{{ u[0] }}">
+                        <div class="input-group">
+                            <input type="text" name="new_password" placeholder="New Password" class="form-control" required>
+                            <button class="btn btn-danger">Reset</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <span class="text-muted">Protected</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
         </table>
     </div>
 </div>

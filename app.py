@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, session
+from flask import Flask, render_template, redirect, url_for, request, session, flash
 import sqlite3
 import os
 from datetime import datetime
@@ -42,10 +42,12 @@ def init_db():
         )
     """)
 
+    # Default year
     c.execute("SELECT * FROM settings")
     if not c.fetchone():
         c.execute("INSERT INTO settings (year) VALUES (?)", ("1447",))
 
+    # Default superadmin
     c.execute("SELECT * FROM users WHERE username='superadmin'")
     if not c.fetchone():
         c.execute("""
@@ -106,7 +108,7 @@ def login():
             session["user_id"] = user[0]
             return redirect(url_for("dashboard"))
         else:
-            return "Invalid Credentials"
+            flash("Invalid Credentials")
 
     return render_template("login.html", year=year)
 
@@ -126,8 +128,7 @@ def dashboard():
         return redirect(url_for("login"))
 
     return render_template("dashboard.html",
-                           year=get_year(),
-                           user=user)
+                           year=get_year())
 
 
 # ---------------- USERS MANAGEMENT ---------------- #
@@ -154,6 +155,7 @@ def users():
             VALUES (?,?,?,?,?)
         """, (username, password, manage, attendance, settings))
         conn.commit()
+        flash("User Created Successfully")
 
     c.execute("SELECT * FROM users")
     all_users = c.fetchall()
@@ -178,6 +180,7 @@ def reset_password(user_id):
     conn.commit()
     conn.close()
 
+    flash("Password Reset Successfully")
     return redirect(url_for("users"))
 
 
@@ -194,7 +197,8 @@ def change_password():
         new = request.form["new"]
 
         if current != user[2]:
-            return "Current password incorrect"
+            flash("Current password incorrect")
+            return redirect(url_for("change_password"))
 
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
@@ -202,56 +206,10 @@ def change_password():
         conn.commit()
         conn.close()
 
-        return "Password Updated Successfully"
+        flash("Password Updated Successfully")
+        return redirect(url_for("dashboard"))
 
     return render_template("change_password.html",
-                           year=get_year())
-
-
-# ---------------- MEMBERS ---------------- #
-
-@app.route("/members", methods=["GET", "POST"])
-def members():
-    user = get_current_user()
-    if not user or user[3] != 1:
-        return "Access Denied"
-
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-
-    if request.method == "POST":
-        sabil = request.form["sabil"]
-        name = request.form["name"]
-        c.execute("INSERT INTO members (sabil_number, name, created_at) VALUES (?,?,?)",
-                  (sabil, name, datetime.now()))
-        conn.commit()
-
-    c.execute("SELECT * FROM members ORDER BY id DESC")
-    members = c.fetchall()
-    conn.close()
-
-    return render_template("members.html",
-                           members=members,
-                           year=get_year())
-
-
-# ---------------- SETTINGS ---------------- #
-
-@app.route("/settings", methods=["GET", "POST"])
-def settings():
-    user = get_current_user()
-    if not user or user[5] != 1:
-        return "Access Denied"
-
-    if request.method == "POST":
-        new_year = request.form["year"]
-        conn = sqlite3.connect(DATABASE)
-        c = conn.cursor()
-        c.execute("UPDATE settings SET year=?", (new_year,))
-        conn.commit()
-        conn.close()
-
-    return render_template("settings.html",
                            year=get_year())
 
 
