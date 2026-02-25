@@ -12,7 +12,10 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 # ---------------- DATABASE ---------------- #
 
 def get_connection():
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg2.connect(
+        DATABASE_URL,
+        sslmode="require"
+    )
 
 
 def init_db():
@@ -63,6 +66,7 @@ def init_db():
     conn.close()
 
 
+# Initialize DB safely
 init_db()
 
 
