@@ -1,0 +1,50 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<h3>User Management</h3>
+
+<div class="card p-4 shadow">
+    <form method="POST">
+        <div class="row">
+            <div class="col-md-3">
+                <input name="username" placeholder="Username" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+                <input name="password" placeholder="Password" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+                <label><input type="checkbox" name="manage"> Manage Members</label>
+            </div>
+            <div class="col-md-2">
+                <label><input type="checkbox" name="attendance"> Attendance</label>
+            </div>
+            <div class="col-md-2">
+                <label><input type="checkbox" name="settings"> Settings</label>
+            </div>
+        </div>
+        <button class="btn btn-dark mt-3">Create User</button>
+    </form>
+</div>
+
+<hr>
+
+<table class="table table-striped">
+    <tr>
+        <th>ID</th>
+        <th>Username</th>
+        <th>Manage</th>
+        <th>Attendance</th>
+        <th>Settings</th>
+    </tr>
+    {% for u in users %}
+    <tr>
+        <td>{{ u[0] }}</td>
+        <td>{{ u[1] }}</td>
+        <td>{{ u[3] }}</td>
+        <td>{{ u[4] }}</td>
+        <td>{{ u[5] }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

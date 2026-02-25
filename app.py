@@ -16,12 +16,15 @@ def init_db():
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
 
+    # Users with permissions
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE,
             password TEXT,
-            role TEXT
+            can_manage_members INTEGER,
+            can_mark_attendance INTEGER,
+            can_change_settings INTEGER
         )
     """)
 
@@ -35,39 +38,25 @@ def init_db():
     """)
 
     c.execute("""
-        CREATE TABLE IF NOT EXISTS attendance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            member_id INTEGER,
-            year TEXT,
-            day INTEGER,
-            marked_by TEXT,
-            marked_at TEXT,
-            UNIQUE(member_id, year, day)
-        )
-    """)
-
-    c.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             year TEXT
         )
     """)
 
-    # Default Year
+    # Default year
     c.execute("SELECT * FROM settings")
     if not c.fetchone():
         c.execute("INSERT INTO settings (year) VALUES (?)", ("1447",))
 
-    # Default Users
+    # Default Superadmin (full permissions)
     c.execute("SELECT * FROM users WHERE username='superadmin'")
     if not c.fetchone():
-        c.execute("INSERT INTO users (username, password, role) VALUES (?,?,?)",
-                  ("superadmin", "1234", "superadmin"))
-
-    c.execute("SELECT * FROM users WHERE username='admin'")
-    if not c.fetchone():
-        c.execute("INSERT INTO users (username, password, role) VALUES (?,?,?)",
-                  ("admin", "1234", "admin"))
+        c.execute("""
+            INSERT INTO users 
+            (username, password, can_manage_members, can_mark_attendance, can_change_settings)
+            VALUES (?,?,?,?,?)
+        """, ("superadmin", "1234", 1, 1, 1))
 
     conn.commit()
     conn.close()
@@ -88,7 +77,19 @@ def get_year():
     return year
 
 
-# ---------------- AUTH ---------------- #
+def get_current_user():
+    if "user_id" not in session:
+        return None
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE id=?", (session["user_id"],))
+    user = c.fetchone()
+    conn.close()
+    return user
+
+
+# ---------------- LOGIN ---------------- #
 
 @app.route("/", methods=["GET", "POST"])
 def login():
@@ -106,8 +107,7 @@ def login():
         conn.close()
 
         if user:
-            session["user"] = user[1]
-            session["role"] = user[3]
+            session["user_id"] = user[0]
             return redirect(url_for("dashboard"))
         else:
             return "Invalid Credentials"
@@ -125,24 +125,46 @@ def logout():
 
 @app.route("/dashboard")
 def dashboard():
-    if "user" not in session:
+    user = get_current_user()
+    if not user:
         return redirect(url_for("login"))
+
+    return render_template("dashboard.html",
+                           year=get_year(),
+                           user=user)
+
+
+# ---------------- USERS MANAGEMENT ---------------- #
+
+@app.route("/users", methods=["GET", "POST"])
+def users():
+    user = get_current_user()
+    if not user or user[5] != 1:
+        return "Access Denied"
 
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
 
-    c.execute("SELECT COUNT(*) FROM members")
-    total_members = c.fetchone()[0]
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        manage = 1 if request.form.get("manage") else 0
+        attendance = 1 if request.form.get("attendance") else 0
+        settings = 1 if request.form.get("settings") else 0
 
-    c.execute("SELECT COUNT(*) FROM attendance WHERE year=?", (get_year(),))
-    total_attendance = c.fetchone()[0]
+        c.execute("""
+            INSERT INTO users 
+            (username, password, can_manage_members, can_mark_attendance, can_change_settings)
+            VALUES (?,?,?,?,?)
+        """, (username, password, manage, attendance, settings))
+        conn.commit()
 
+    c.execute("SELECT * FROM users")
+    all_users = c.fetchall()
     conn.close()
 
-    return render_template("dashboard.html",
-                           total_members=total_members,
-                           total_attendance=total_attendance,
-                           role=session["role"],
+    return render_template("users.html",
+                           users=all_users,
                            year=get_year())
 
 
@@ -150,10 +172,8 @@ def dashboard():
 
 @app.route("/members", methods=["GET", "POST"])
 def members():
-    if "user" not in session:
-        return redirect(url_for("login"))
-
-    if session["role"] != "superadmin":
+    user = get_current_user()
+    if not user or user[3] != 1:
         return "Access Denied"
 
     conn = sqlite3.connect(DATABASE)
@@ -167,38 +187,32 @@ def members():
         conn.commit()
 
     c.execute("SELECT * FROM members ORDER BY id DESC")
-    all_members = c.fetchall()
+    members = c.fetchall()
     conn.close()
 
     return render_template("members.html",
-                           members=all_members,
+                           members=members,
                            year=get_year())
 
 
-@app.route("/delete_member/<int:id>")
-def delete_member(id):
-    if session.get("role") != "superadmin":
+# ---------------- SETTINGS ---------------- #
+
+@app.route("/settings", methods=["GET", "POST"])
+def settings():
+    user = get_current_user()
+    if not user or user[5] != 1:
         return "Access Denied"
 
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    c.execute("DELETE FROM members WHERE id=?", (id,))
-    conn.commit()
-    conn.close()
+    if request.method == "POST":
+        new_year = request.form["year"]
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute("UPDATE settings SET year=?", (new_year,))
+        conn.commit()
+        conn.close()
 
-    return redirect(url_for("members"))
-
-
-@app.route("/export_members")
-def export_members():
-    conn = sqlite3.connect(DATABASE)
-    df = pd.read_sql_query("SELECT sabil_number, name, created_at FROM members", conn)
-    conn.close()
-
-    filename = "members_export.csv"
-    df.to_csv(filename, index=False)
-
-    return send_file(filename, as_attachment=True)
+    return render_template("settings.html",
+                           year=get_year())
 
 
 # ---------------- RUN LOCAL ---------------- #

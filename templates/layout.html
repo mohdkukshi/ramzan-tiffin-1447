@@ -6,25 +6,14 @@
 </head>
 <body class="bg-light">
 
-{% if session.get('user') %}
+{% if session.get('user_id') %}
 <nav class="navbar navbar-dark bg-dark px-4">
-    <span class="navbar-brand fw-bold">
-        Ramzan Tiffin Pirsa {{ year }}
-    </span>
-
+    <span class="navbar-brand">Ramzan Tiffin Pirsa {{ year }}</span>
     <div>
         <a href="/dashboard" class="btn btn-sm btn-light">Dashboard</a>
-
-        {% if session.get('role') == 'superadmin' %}
         <a href="/members" class="btn btn-sm btn-light">Members</a>
-        {% endif %}
-
-        <a href="/attendance" class="btn btn-sm btn-light">Attendance</a>
-
-        {% if session.get('role') == 'superadmin' %}
-        <a href="/settings" class="btn btn-sm btn-warning">Settings</a>
-        {% endif %}
-
+        <a href="/users" class="btn btn-sm btn-warning">Users</a>
+        <a href="/settings" class="btn btn-sm btn-info">Settings</a>
         <a href="/logout" class="btn btn-sm btn-danger">Logout</a>
     </div>
 </nav>
