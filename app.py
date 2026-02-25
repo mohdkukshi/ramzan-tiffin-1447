@@ -10,7 +10,7 @@ app.secret_key = "supersecretkey"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
-# ---------------- DATABASE CONNECTION ---------------- #
+# ---------------- DATABASE ---------------- #
 
 def get_connection():
     return psycopg2.connect(
@@ -91,7 +91,6 @@ def get_year():
 def get_current_user():
     if "user_id" not in session:
         return None
-
     with get_connection() as conn:
         with conn.cursor() as c:
             c.execute("SELECT * FROM users WHERE id=%s;", (session["user_id"],))
@@ -113,23 +112,9 @@ def login():
                 c.execute("SELECT * FROM users WHERE username=%s;", (username,))
                 user = c.fetchone()
 
-                if user:
-                    stored_password = user[2]
-
-                    try:
-                        if check_password_hash(stored_password, password_input):
-                            session["user_id"] = user[0]
-                            return redirect(url_for("dashboard"))
-                    except:
-                        pass
-
-                    if stored_password == password_input:
-                        new_hash = generate_password_hash(password_input)
-                        c.execute("UPDATE users SET password=%s WHERE id=%s;",
-                                  (new_hash, user[0]))
-                        conn.commit()
-                        session["user_id"] = user[0]
-                        return redirect(url_for("dashboard"))
+                if user and check_password_hash(user[2], password_input):
+                    session["user_id"] = user[0]
+                    return redirect(url_for("dashboard"))
 
         flash("Invalid Credentials")
 
@@ -148,7 +133,6 @@ def logout():
 def dashboard():
     if not get_current_user():
         return redirect(url_for("login"))
-
     return render_template("dashboard.html", year=get_year())
 
 
@@ -221,8 +205,7 @@ def settings():
     if request.method == "POST":
         with get_connection() as conn:
             with conn.cursor() as c:
-                c.execute("UPDATE settings SET year=%s;",
-                          (request.form["year"],))
+                c.execute("UPDATE settings SET year=%s;", (request.form["year"],))
                 conn.commit()
         flash("Year updated")
 
@@ -256,6 +239,37 @@ def members():
 
     return render_template("members.html", members=members, year=get_year())
 
+
+@app.route("/edit_member/<int:member_id>", methods=["GET", "POST"])
+def edit_member(member_id):
+    user = get_current_user()
+    if not user or user[3] != 1:
+        return "Access Denied"
+
+    with get_connection() as conn:
+        with conn.cursor() as c:
+
+            if request.method == "POST":
+                c.execute("""
+                    UPDATE members
+                    SET sabil_number=%s, name=%s
+                    WHERE id=%s;
+                """, (
+                    request.form["sabil"],
+                    request.form["name"],
+                    member_id
+                ))
+                conn.commit()
+                flash("Member updated")
+                return redirect(url_for("members"))
+
+            c.execute("SELECT * FROM members WHERE id=%s;", (member_id,))
+            member = c.fetchone()
+
+    return render_template("edit_member.html", member=member, year=get_year())
+
+
+# ---------------- ATTENDANCE ---------------- #
 
 @app.route("/attendance", methods=["GET", "POST"])
 def attendance():
