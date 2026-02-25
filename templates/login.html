@@ -1,23 +1,92 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Login - Ramzan Tiffin Pirsa {{ year }}</title>
+    <title>Ramzan Tiffin Pirsa {{ year }} - Login</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-card {
+            background: white;
+            padding: 40px;
+            width: 350px;
+            border-radius: 10px;
+            box-shadow: 0px 8px 25px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .login-card h2 {
+            margin-bottom: 25px;
+            color: #333;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #2c5364;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #203a43;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .year {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+    </style>
 </head>
 <body>
 
-<h2>Ramzan Tiffin Pirsa {{ year }}</h2>
+<div class="login-card">
 
-<form method="POST">
-    <input type="text" name="username" placeholder="Username" required><br><br>
-    <input type="password" name="password" placeholder="Password" required><br><br>
-    <button type="submit">Login</button>
-</form>
+    <h2>Ramzan Tiffin Pirsa</h2>
+    <div class="year">Year {{ year }}</div>
 
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <p style="color:red;">{{ messages[0] }}</p>
-  {% endif %}
-{% endwith %}
+    <form method="POST">
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="error">{{ messages[0] }}</div>
+      {% endif %}
+    {% endwith %}
+
+</div>
 
 </body>
 </html>
