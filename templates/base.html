@@ -11,107 +11,89 @@
         }
 
         .navbar {
-            background: #2c3e50;
-            padding: 15px;
-            color: white;
+            background: #1f2a36;
+            padding: 15px 30px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .nav-left {
+        .navbar-title {
+            color: white;
+            font-size: 18px;
             font-weight: bold;
         }
 
-        .nav-right a {
-            color: white;
-            margin-left: 15px;
+        .nav-links a {
             text-decoration: none;
+            padding: 8px 14px;
+            margin-left: 8px;
+            border-radius: 5px;
             font-size: 14px;
-            padding: 6px 10px;
-            border-radius: 4px;
+            font-weight: 500;
         }
 
-        .nav-right a:hover {
-            background: rgba(255,255,255,0.15);
-        }
+        .btn-dark { background:#34495e; color:white; }
+        .btn-yellow { background:#f39c12; color:black; }
+        .btn-blue { background:#3498db; color:white; }
+        .btn-red { background:#e74c3c; color:white; }
 
         .container {
-            padding: 30px;
+            padding: 40px;
         }
 
         .card {
             background: white;
-            padding: 25px;
+            padding: 20px;
             border-radius: 8px;
-            box-shadow: 0px 4px 15px rgba(0,0,0,0.08);
-            max-width: 100%;
-        }
-
-        input, select {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
         }
 
         button {
-            padding: 10px 15px;
-            background: #2c3e50;
-            color: white;
+            padding: 8px 15px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
         }
 
-        button:hover {
-            background: #1a252f;
+        input, select {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
         }
 
-        .flash {
-            color: green;
-            margin-bottom: 10px;
+        h2 {
+            margin-top: 0;
         }
     </style>
 </head>
+
 <body>
 
 <div class="navbar">
-    <div class="nav-left">
+    <div class="navbar-title">
         Ramzan Tiffin Pirsa {{ year }}
     </div>
 
-    <div class="nav-right">
+    <div class="nav-links">
 
         {% if request.endpoint == "dashboard" %}
-
-            <a href="{{ url_for('members') }}">Members</a>
-            <a href="{{ url_for('users') }}">Users</a>
-            <a href="{{ url_for('settings') }}">Settings</a>
-            <a href="{{ url_for('change_password') }}">Change Password</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
+            <a href="{{ url_for('members') }}" class="btn-dark">Members</a>
+            <a href="{{ url_for('users') }}" class="btn-yellow">Users</a>
+            <a href="{{ url_for('settings') }}" class="btn-blue">Settings</a>
+            <a href="{{ url_for('change_password') }}" class="btn-dark">Change Password</a>
+            <a href="{{ url_for('logout') }}" class="btn-red">Logout</a>
 
         {% else %}
-
-            <a href="{{ url_for('dashboard') }}">Dashboard</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
-
+            <a href="{{ url_for('dashboard') }}" class="btn-dark">Dashboard</a>
+            <a href="{{ url_for('logout') }}" class="btn-red">Logout</a>
         {% endif %}
 
     </div>
 </div>
 
 <div class="container">
-
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="flash">{{ messages[0] }}</div>
-      {% endif %}
-    {% endwith %}
-
     {% block content %}{% endblock %}
-
 </div>
 
 </body>
