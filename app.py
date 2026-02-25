@@ -9,7 +9,7 @@ app.secret_key = "supersecretkey"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
-# ---------------- DATABASE CONNECTION ---------------- #
+# ---------------- DATABASE ---------------- #
 
 def get_connection():
     return psycopg2.connect(DATABASE_URL)
@@ -63,10 +63,11 @@ def init_db():
     conn.close()
 
 
-@app.before_first_request
-def setup():
-    init_db()
+# Initialize DB immediately on startup (Flask 3 compatible)
+init_db()
 
+
+# ---------------- HELPERS ---------------- #
 
 def get_year():
     conn = get_connection()
@@ -210,8 +211,7 @@ def delete_member(id):
     return redirect(url_for("members"))
 
 
-# ---------------- RUN ---------------- #
+# ---------------- RUN LOCAL ---------------- #
 
 if __name__ == "__main__":
-    init_db()
     app.run(host="0.0.0.0", port=5000)
