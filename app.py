@@ -237,56 +237,38 @@ def settings():
 @app.route("/members", methods=["GET", "POST"])
 def members():
     user = get_current_user()
-    if not user or user[3] != 1:
-        return "Access Denied"
+    if not user:
+        return redirect(url_for("login"))
+
+    year = get_year()
 
     with get_connection() as conn:
         with conn.cursor() as c:
 
             if request.method == "POST":
+                sabil = request.form["sabil"]
+                name = request.form["name"]
+
                 c.execute("""
-                    INSERT INTO members (sabil_number, name, created_at)
-                    VALUES (%s,%s,%s);
-                """, (
-                    request.form["sabil"],
-                    request.form["name"],
-                    datetime.now()
-                ))
+                    INSERT INTO members (sabil_number, name)
+                    VALUES (%s, %s);
+                """, (sabil, name))
+
                 conn.commit()
-
-            c.execute("SELECT * FROM members ORDER BY id DESC;")
-            members = c.fetchall()
-
-    return render_template("members.html", members=members, year=get_year())
-
-
-@app.route("/edit_member/<int:member_id>", methods=["GET", "POST"])
-def edit_member(member_id):
-    user = get_current_user()
-    if not user or user[3] != 1:
-        return "Access Denied"
-
-    with get_connection() as conn:
-        with conn.cursor() as c:
-
-            if request.method == "POST":
-                c.execute("""
-                    UPDATE members
-                    SET sabil_number=%s, name=%s
-                    WHERE id=%s;
-                """, (
-                    request.form["sabil"],
-                    request.form["name"],
-                    member_id
-                ))
-                conn.commit()
-                flash("Member updated")
                 return redirect(url_for("members"))
 
-            c.execute("SELECT * FROM members WHERE id=%s;", (member_id,))
-            member = c.fetchone()
+            c.execute("""
+                SELECT id, sabil_number, name
+                FROM members
+                ORDER BY id;
+            """)
+            members_list = c.fetchall()
 
-    return render_template("edit_member.html", member=member, year=get_year())
+    return render_template(
+        "members.html",
+        members=members_list,
+        year=year
+    )
 
 
 # ---------------- ATTENDANCE ---------------- #
