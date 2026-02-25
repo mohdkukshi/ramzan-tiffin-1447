@@ -131,9 +131,29 @@ def logout():
 
 @app.route("/dashboard")
 def dashboard():
-    if not get_current_user():
+    user = get_current_user()
+    if not user:
         return redirect(url_for("login"))
-    return render_template("dashboard.html", year=get_year())
+
+    year = get_year()
+
+    with get_connection() as conn:
+        with conn.cursor() as c:
+
+            # Total Members
+            c.execute("SELECT COUNT(*) FROM members;")
+            total_members = c.fetchone()[0]
+
+            # Total Attendance for current year
+            c.execute("SELECT COUNT(*) FROM attendance WHERE year=%s;", (year,))
+            total_attendance = c.fetchone()[0]
+
+    return render_template(
+        "dashboard.html",
+        year=year,
+        total_members=total_members,
+        total_attendance=total_attendance
+    )
 
 
 # ---------------- USERS ---------------- #
