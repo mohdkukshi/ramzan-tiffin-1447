@@ -1,42 +1,23 @@
-@app.route("/", methods=["GET", "POST"])
-def login():
-    year = get_year()
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - Ramzan Tiffin Pirsa {{ year }}</title>
+</head>
+<body>
 
-    if request.method == "POST":
-        username = request.form["username"]
-        password_input = request.form["password"]
+<h2>Ramzan Tiffin Pirsa {{ year }}</h2>
 
-        conn = get_connection()
-        c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username=%s;", (username,))
-        user = c.fetchone()
+<form method="POST">
+    <input type="text" name="username" placeholder="Username" required><br><br>
+    <input type="password" name="password" placeholder="Password" required><br><br>
+    <button type="submit">Login</button>
+</form>
 
-        if user:
-            stored_password = user[2]
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <p style="color:red;">{{ messages[0] }}</p>
+  {% endif %}
+{% endwith %}
 
-            # Try hashed password check first
-            try:
-                if check_password_hash(stored_password, password_input):
-                    session["user_id"] = user[0]
-                    c.close()
-                    conn.close()
-                    return redirect(url_for("dashboard"))
-            except:
-                pass
-
-            # If not hashed (plain text old password)
-            if stored_password == password_input:
-                new_hash = generate_password_hash(password_input)
-                c.execute("UPDATE users SET password=%s WHERE id=%s;",
-                          (new_hash, user[0]))
-                conn.commit()
-                session["user_id"] = user[0]
-                c.close()
-                conn.close()
-                return redirect(url_for("dashboard"))
-
-        c.close()
-        conn.close()
-        flash("Invalid Credentials")
-
-    return render_template("login.html", year=year)
+</body>
+</html>

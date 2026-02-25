@@ -10,80 +10,71 @@ app.secret_key = "supersecretkey"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
-# ---------------- DATABASE ---------------- #
+# ---------------- DATABASE CONNECTION ---------------- #
 
 def get_connection():
     return psycopg2.connect(
         DATABASE_URL,
-        sslmode="require"
+        sslmode="require",
+        connect_timeout=5
     )
 
 
 def init_db():
-    conn = get_connection()
-    c = conn.cursor()
+    with get_connection() as conn:
+        with conn.cursor() as c:
 
-    # USERS
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            username TEXT UNIQUE,
-            password TEXT,
-            can_manage_members INTEGER,
-            can_mark_attendance INTEGER,
-            can_change_settings INTEGER
-        );
-    """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT UNIQUE,
+                    password TEXT,
+                    can_manage_members INTEGER,
+                    can_mark_attendance INTEGER,
+                    can_change_settings INTEGER
+                );
+            """)
 
-    # MEMBERS
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS members (
-            id SERIAL PRIMARY KEY,
-            sabil_number TEXT UNIQUE,
-            name TEXT,
-            created_at TIMESTAMP
-        );
-    """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS members (
+                    id SERIAL PRIMARY KEY,
+                    sabil_number TEXT UNIQUE,
+                    name TEXT,
+                    created_at TIMESTAMP
+                );
+            """)
 
-    # SETTINGS
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS settings (
-            id SERIAL PRIMARY KEY,
-            year TEXT
-        );
-    """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    id SERIAL PRIMARY KEY,
+                    year TEXT
+                );
+            """)
 
-    # ATTENDANCE
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS attendance (
-            id SERIAL PRIMARY KEY,
-            member_id INTEGER,
-            year TEXT,
-            day INTEGER,
-            marked_at TIMESTAMP,
-            UNIQUE(member_id, year, day)
-        );
-    """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS attendance (
+                    id SERIAL PRIMARY KEY,
+                    member_id INTEGER,
+                    year TEXT,
+                    day INTEGER,
+                    marked_at TIMESTAMP,
+                    UNIQUE(member_id, year, day)
+                );
+            """)
 
-    # Default year
-    c.execute("SELECT * FROM settings;")
-    if not c.fetchone():
-        c.execute("INSERT INTO settings (year) VALUES (%s);", ("1447",))
+            c.execute("SELECT * FROM settings;")
+            if not c.fetchone():
+                c.execute("INSERT INTO settings (year) VALUES (%s);", ("1447",))
 
-    # Default superadmin
-    c.execute("SELECT * FROM users WHERE username=%s;", ("superadmin",))
-    if not c.fetchone():
-        hashed = generate_password_hash("1234")
-        c.execute("""
-            INSERT INTO users
-            (username, password, can_manage_members, can_mark_attendance, can_change_settings)
-            VALUES (%s,%s,%s,%s,%s);
-        """, ("superadmin", hashed, 1, 1, 1))
-
-    conn.commit()
-    c.close()
-    conn.close()
-
+            c.execute("SELECT * FROM users WHERE username=%s;", ("superadmin",))
+            if not c.fetchone():
+                c.execute("""
+                    INSERT INTO users
+                    (username, password, can_manage_members, can_mark_attendance, can_change_settings)
+                    VALUES (%s,%s,%s,%s,%s);
+                """, ("superadmin",
+                      generate_password_hash("1234"),
+                      1, 1, 1))
 
 init_db()
 
@@ -91,26 +82,20 @@ init_db()
 # ---------------- HELPERS ---------------- #
 
 def get_year():
-    conn = get_connection()
-    c = conn.cursor()
-    c.execute("SELECT year FROM settings LIMIT 1;")
-    year = c.fetchone()[0]
-    c.close()
-    conn.close()
-    return year
+    with get_connection() as conn:
+        with conn.cursor() as c:
+            c.execute("SELECT year FROM settings LIMIT 1;")
+            return c.fetchone()[0]
 
 
 def get_current_user():
     if "user_id" not in session:
         return None
 
-    conn = get_connection()
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE id=%s;", (session["user_id"],))
-    user = c.fetchone()
-    c.close()
-    conn.close()
-    return user
+    with get_connection() as conn:
+        with conn.cursor() as c:
+            c.execute("SELECT * FROM users WHERE id=%s;", (session["user_id"],))
+            return c.fetchone()
 
 
 # ---------------- LOGIN ---------------- #
@@ -123,33 +108,29 @@ def login():
         username = request.form["username"]
         password_input = request.form["password"]
 
-        conn = get_connection()
-        c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username=%s;", (username,))
-        user = c.fetchone()
+        with get_connection() as conn:
+            with conn.cursor() as c:
+                c.execute("SELECT * FROM users WHERE username=%s;", (username,))
+                user = c.fetchone()
 
-        if user:
-            stored_password = user[2]
+                if user:
+                    stored_password = user[2]
 
-            if stored_password.startswith("pbkdf2:"):
-                if check_password_hash(stored_password, password_input):
-                    session["user_id"] = user[0]
-                    c.close()
-                    conn.close()
-                    return redirect(url_for("dashboard"))
-            else:
-                if stored_password == password_input:
-                    new_hash = generate_password_hash(password_input)
-                    c.execute("UPDATE users SET password=%s WHERE id=%s;",
-                              (new_hash, user[0]))
-                    conn.commit()
-                    session["user_id"] = user[0]
-                    c.close()
-                    conn.close()
-                    return redirect(url_for("dashboard"))
+                    try:
+                        if check_password_hash(stored_password, password_input):
+                            session["user_id"] = user[0]
+                            return redirect(url_for("dashboard"))
+                    except:
+                        pass
 
-        c.close()
-        conn.close()
+                    if stored_password == password_input:
+                        new_hash = generate_password_hash(password_input)
+                        c.execute("UPDATE users SET password=%s WHERE id=%s;",
+                                  (new_hash, user[0]))
+                        conn.commit()
+                        session["user_id"] = user[0]
+                        return redirect(url_for("dashboard"))
+
         flash("Invalid Credentials")
 
     return render_template("login.html", year=year)
@@ -171,7 +152,110 @@ def dashboard():
     return render_template("dashboard.html", year=get_year())
 
 
-# ---------------- ATTENDANCE ---------------- #
+# ---------------- USERS ---------------- #
+
+@app.route("/users", methods=["GET", "POST"])
+def users():
+    user = get_current_user()
+    if not user or user[5] != 1:
+        return "Access Denied"
+
+    with get_connection() as conn:
+        with conn.cursor() as c:
+
+            if request.method == "POST":
+                c.execute("""
+                    INSERT INTO users
+                    (username, password, can_manage_members, can_mark_attendance, can_change_settings)
+                    VALUES (%s,%s,%s,%s,%s);
+                """, (
+                    request.form["username"],
+                    generate_password_hash(request.form["password"]),
+                    1 if request.form.get("manage") else 0,
+                    1 if request.form.get("attendance") else 0,
+                    1 if request.form.get("settings") else 0
+                ))
+                conn.commit()
+                flash("User Created")
+
+            c.execute("SELECT * FROM users;")
+            users = c.fetchall()
+
+    return render_template("users.html", users=users, year=get_year())
+
+
+@app.route("/change_password", methods=["GET", "POST"])
+def change_password():
+    user = get_current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        current = request.form["current"]
+        new = request.form["new"]
+
+        if not check_password_hash(user[2], current):
+            flash("Current password incorrect")
+            return redirect(url_for("change_password"))
+
+        with get_connection() as conn:
+            with conn.cursor() as c:
+                c.execute("UPDATE users SET password=%s WHERE id=%s;",
+                          (generate_password_hash(new), user[0]))
+                conn.commit()
+
+        flash("Password updated")
+        return redirect(url_for("dashboard"))
+
+    return render_template("change_password.html", year=get_year())
+
+
+# ---------------- SETTINGS ---------------- #
+
+@app.route("/settings", methods=["GET", "POST"])
+def settings():
+    user = get_current_user()
+    if not user or user[5] != 1:
+        return "Access Denied"
+
+    if request.method == "POST":
+        with get_connection() as conn:
+            with conn.cursor() as c:
+                c.execute("UPDATE settings SET year=%s;",
+                          (request.form["year"],))
+                conn.commit()
+        flash("Year updated")
+
+    return render_template("settings.html", year=get_year())
+
+
+# ---------------- MEMBERS ---------------- #
+
+@app.route("/members", methods=["GET", "POST"])
+def members():
+    user = get_current_user()
+    if not user or user[3] != 1:
+        return "Access Denied"
+
+    with get_connection() as conn:
+        with conn.cursor() as c:
+
+            if request.method == "POST":
+                c.execute("""
+                    INSERT INTO members (sabil_number, name, created_at)
+                    VALUES (%s,%s,%s);
+                """, (
+                    request.form["sabil"],
+                    request.form["name"],
+                    datetime.now()
+                ))
+                conn.commit()
+
+            c.execute("SELECT * FROM members ORDER BY id DESC;")
+            members = c.fetchall()
+
+    return render_template("members.html", members=members, year=get_year())
+
 
 @app.route("/attendance", methods=["GET", "POST"])
 def attendance():
@@ -179,48 +263,48 @@ def attendance():
     if not user or user[4] != 1:
         return "Access Denied"
 
-    conn = get_connection()
-    c = conn.cursor()
-
     year = get_year()
 
-    # Fetch members
-    c.execute("SELECT id, name FROM members ORDER BY name;")
-    members = c.fetchall()
+    with get_connection() as conn:
+        with conn.cursor() as c:
 
-    selected_member = request.args.get("member")
-    attendance_days = []
+            c.execute("SELECT id, name FROM members ORDER BY name;")
+            members = c.fetchall()
 
-    if selected_member:
-        # Get already marked days
-        c.execute("""
-            SELECT day FROM attendance
-            WHERE member_id=%s AND year=%s;
-        """, (selected_member, year))
-        rows = c.fetchall()
-        attendance_days = [r[0] for r in rows]
+            selected_member = request.args.get("member")
+            attendance_days = []
 
-    # Mark attendance
-    if request.method == "POST":
-        member_id = request.form["member_id"]
-        day = request.form["day"]
+            if selected_member:
+                c.execute("""
+                    SELECT day FROM attendance
+                    WHERE member_id=%s AND year=%s;
+                """, (selected_member, year))
+                attendance_days = [r[0] for r in c.fetchall()]
 
-        try:
-            c.execute("""
-                INSERT INTO attendance (member_id, year, day, marked_at)
-                VALUES (%s,%s,%s,%s);
-            """, (member_id, year, day, datetime.now()))
-            conn.commit()
-        except:
-            pass  # Ignore duplicate (tick-lock)
+            if request.method == "POST":
+                try:
+                    c.execute("""
+                        INSERT INTO attendance (member_id, year, day, marked_at)
+                        VALUES (%s,%s,%s,%s);
+                    """, (
+                        request.form["member_id"],
+                        year,
+                        request.form["day"],
+                        datetime.now()
+                    ))
+                    conn.commit()
+                except:
+                    pass
 
-        return redirect(url_for("attendance", member=member_id))
-
-    c.close()
-    conn.close()
+                return redirect(url_for("attendance",
+                                        member=request.form["member_id"]))
 
     return render_template("attendance.html",
                            members=members,
                            selected_member=selected_member,
                            attendance_days=attendance_days,
                            year=year)
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
