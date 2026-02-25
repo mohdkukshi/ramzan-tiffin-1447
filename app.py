@@ -2,6 +2,7 @@ from flask import Flask, render_template, redirect, url_for, request, session, f
 import os
 import psycopg2
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
@@ -53,20 +54,21 @@ def init_db():
     if not c.fetchone():
         c.execute("INSERT INTO settings (year) VALUES (%s);", ("1447",))
 
+    # Create superadmin if not exists
     c.execute("SELECT * FROM users WHERE username=%s;", ("superadmin",))
     if not c.fetchone():
+        hashed = generate_password_hash("1234")
         c.execute("""
             INSERT INTO users
             (username, password, can_manage_members, can_mark_attendance, can_change_settings)
             VALUES (%s,%s,%s,%s,%s);
-        """, ("superadmin", "1234", 1, 1, 1))
+        """, ("superadmin", hashed, 1, 1, 1))
 
     conn.commit()
     c.close()
     conn.close()
 
 
-# Initialize DB safely
 init_db()
 
 
@@ -103,21 +105,38 @@ def login():
 
     if request.method == "POST":
         username = request.form["username"]
-        password = request.form["password"]
+        password_input = request.form["password"]
 
         conn = get_connection()
         c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username=%s AND password=%s;",
-                  (username, password))
+        c.execute("SELECT * FROM users WHERE username=%s;", (username,))
         user = c.fetchone()
-        c.close()
-        conn.close()
 
         if user:
-            session["user_id"] = user[0]
-            return redirect(url_for("dashboard"))
-        else:
-            flash("Invalid Credentials")
+            stored_password = user[2]
+
+            # If already hashed
+            if stored_password.startswith("pbkdf2:"):
+                if check_password_hash(stored_password, password_input):
+                    session["user_id"] = user[0]
+                    c.close()
+                    conn.close()
+                    return redirect(url_for("dashboard"))
+            else:
+                # Plain text password migration
+                if stored_password == password_input:
+                    new_hash = generate_password_hash(password_input)
+                    c.execute("UPDATE users SET password=%s WHERE id=%s;",
+                              (new_hash, user[0]))
+                    conn.commit()
+                    session["user_id"] = user[0]
+                    c.close()
+                    conn.close()
+                    return redirect(url_for("dashboard"))
+
+        c.close()
+        conn.close()
+        flash("Invalid Credentials")
 
     return render_template("login.html", year=year)
 
@@ -151,7 +170,7 @@ def users():
 
     if request.method == "POST":
         username = request.form["username"]
-        password = request.form["password"]
+        password = generate_password_hash(request.form["password"])
         manage = 1 if request.form.get("manage") else 0
         attendance = 1 if request.form.get("attendance") else 0
         settings = 1 if request.form.get("settings") else 0
@@ -183,13 +202,14 @@ def change_password():
         current = request.form["current"]
         new = request.form["new"]
 
-        if current != user[2]:
+        if not check_password_hash(user[2], current):
             flash("Current password incorrect")
             return redirect(url_for("change_password"))
 
         conn = get_connection()
         c = conn.cursor()
-        c.execute("UPDATE users SET password=%s WHERE id=%s;", (new, user[0]))
+        c.execute("UPDATE users SET password=%s WHERE id=%s;",
+                  (generate_password_hash(new), user[0]))
         conn.commit()
         c.close()
         conn.close()
