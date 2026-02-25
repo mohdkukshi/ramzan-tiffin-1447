@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>Ramzan Tiffin Pirsa {{ year }}</title>
-
     <style>
         body {
             margin: 0;
@@ -31,12 +30,14 @@
             border-radius: 5px;
             font-size: 14px;
             font-weight: 500;
+            color: white;
         }
 
-        .btn-dark { background:#34495e; color:white; }
+        .btn-grey { background:#34495e; }
         .btn-yellow { background:#f39c12; color:black; }
-        .btn-blue { background:#3498db; color:white; }
-        .btn-red { background:#e74c3c; color:white; }
+        .btn-blue { background:#3498db; }
+        .btn-green { background:#27ae60; }
+        .btn-red { background:#e74c3c; }
 
         .container {
             padding: 40px;
@@ -44,9 +45,10 @@
 
         .card {
             background: white;
-            padding: 20px;
+            padding: 25px;
             border-radius: 8px;
             box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
         }
 
         button {
@@ -62,9 +64,7 @@
             border: 1px solid #ccc;
         }
 
-        h2 {
-            margin-top: 0;
-        }
+        h2 { margin-top:0; }
     </style>
 </head>
 
@@ -77,15 +77,15 @@
 
     <div class="nav-links">
 
-        {% if request.endpoint == "dashboard" %}
-            <a href="{{ url_for('members') }}" class="btn-dark">Members</a>
+        {% if request.path == "/dashboard" %}
+            <a href="{{ url_for('members') }}" class="btn-grey">Members</a>
+            <a href="{{ url_for('attendance') }}" class="btn-green">Attendance</a>
             <a href="{{ url_for('users') }}" class="btn-yellow">Users</a>
             <a href="{{ url_for('settings') }}" class="btn-blue">Settings</a>
-            <a href="{{ url_for('change_password') }}" class="btn-dark">Change Password</a>
+            <a href="{{ url_for('change_password') }}" class="btn-grey">Change Password</a>
             <a href="{{ url_for('logout') }}" class="btn-red">Logout</a>
-
         {% else %}
-            <a href="{{ url_for('dashboard') }}" class="btn-dark">Dashboard</a>
+            <a href="{{ url_for('dashboard') }}" class="btn-grey">Dashboard</a>
             <a href="{{ url_for('logout') }}" class="btn-red">Logout</a>
         {% endif %}
 

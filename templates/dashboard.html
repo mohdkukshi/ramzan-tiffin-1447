@@ -1,23 +1,18 @@
 {% extends "base.html" %}
-
 {% block content %}
 
 <h2>Dashboard</h2>
 
-<div style="display:flex; gap:20px; flex-wrap:wrap;">
+<div style="display:flex; gap:30px;">
 
-    <div class="card" style="flex:1;">
+    <div class="card" style="width:300px;">
         <h3>Total Members</h3>
-        <p style="font-size:28px; font-weight:bold;">
-            {{ total_members }}
-        </p>
+        <h1>{{ total_members }}</h1>
     </div>
 
-    <div class="card" style="flex:1;">
+    <div class="card" style="width:300px;">
         <h3>Total Attendance ({{ year }})</h3>
-        <p style="font-size:28px; font-weight:bold;">
-            {{ total_attendance }}
-        </p>
+        <h1>{{ total_attendance }}</h1>
     </div>
 
 </div>
